@@ -32,7 +32,6 @@ import sjsonnew.shaded.scalajson.ast.unsafe.{ JNull, JValue }
 import sjsonnew.support.scalajson.unsafe.{ CompactPrinter, Converter, Parser => JsonParser }
 import xsbti.CompileFailed
 
-import java.nio.file.Path
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.collection.mutable
@@ -42,6 +41,8 @@ import scala.util.control.NonFatal
 import scala.util.{ Failure, Success, Try }
 import scala.annotation.nowarn
 import sbt.testing.Framework
+import xsbti.VirtualFileRef
+import java.util.concurrent.atomic.AtomicReference
 
 object BuildServerProtocol {
   import sbt.internal.bsp.codec.JsonProtocol._
@@ -312,11 +313,15 @@ object BuildServerProtocol {
       val underlying = (Keys.compile / compilerReporter).value
       val logger = streams.value.log
       val meta = isMetaBuild.value
+      //Adam
+      val spms = sourcePositionMappers.value
       if (bspEnabled.value) {
         new BuildServerReporterImpl(
           targetId,
           bspCompileStateInstance,
           converter,
+          //Adam
+          Defaults.foldMappers(spms, reportAbsolutePath.value, fileConverter.value),
           meta,
           logger,
           underlying
@@ -1032,8 +1037,8 @@ object BuildServerProtocol {
    * see: https://github.com/scalacenter/bloop/issues/726
    */
   private[server] final class BspCompileState {
-    val hasAnyProblems: java.util.Set[Path] =
-      java.util.concurrent.ConcurrentHashMap.newKeySet[Path]
+    val hasAnyProblems: AtomicReference[Map[VirtualFileRef, Vector[TextDocumentIdentifier]]] =
+      new AtomicReference(Map.empty)
     val compiledAtLeastOnce: AtomicBoolean = new AtomicBoolean(false)
   }
 }
