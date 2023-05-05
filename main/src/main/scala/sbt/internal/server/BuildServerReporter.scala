@@ -1,4 +1,6 @@
 /*
+ *This file contains the implementation of the BuildServerReporter and its subclasses, which are responsible for
+ *reporting compilation diagnostics to the Build Server during the build process.
  * sbt
  * Copyright 2011 - 2018, Lightbend, Inc.
  * Copyright 2008 - 2010, Mark Harrah
@@ -27,6 +29,10 @@ import xsbti.{
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
+/**
+A sealed trait representing a reporter for the Build Server.
+Provides methods for sending success and failure reports and publishing diagnostics.
+*/
 sealed trait BuildServerReporter extends Reporter {
   private final val sigFilesWritten = "[sig files written]"
   private final val pureExpression = "a pure expression does nothing in statement position"
@@ -69,6 +75,18 @@ sealed trait BuildServerReporter extends Reporter {
 
   override def comment(pos: XPosition, msg: String): Unit = underlying.comment(pos, msg)
 }
+/**
+
+An implementation of the BuildServerReporter for communicating with the Build Server.
+Sends diagnostic messages to the client, handling success and failure cases.
+@param buildTarget the identifier of the build target
+@param bspCompileState state representing the compilation of the Build Server Protocol
+@param converter a file converter for converting between VirtualFileRef and Path
+@param sourcePositionMapper a function to map an xsbti.Position from the generated file  to the original xsbti.Position
+@param isMetaBuild a flag indicating if this is a meta build
+@param logger a ManagedLogger for logging messages
+@param underlying the underlying reporter instance
+*/
 
 final class BuildServerReporterImpl(
     buildTarget: BuildTargetIdentifier,
@@ -103,13 +121,12 @@ final class BuildServerReporterImpl(
     val shouldReportAllProblems = !bspCompileState.compiledAtLeastOnce.getAndSet(true)
     for {
       (source, infos) <- analysis.readSourceInfos.getAllSourceInfos.asScala
-      filePath <- toSafePath(source)
+      sourcePath <- toSafePath(source)
     } {
       // clear problems for current file
       val oldDocuments = bspCompileState.hasAnyProblems.getAndUpdate(_ - source).getOrElse(source, Seq.empty)
 
-      val reportedProblems = infos.getReportedProblems.toVector
-      val problems = reportedProblems
+      val problems = infos.getReportedProblems.toVector
 
       // publish diagnostics if:
       // 1. file had any problems previously - we might want to update them with new ones
@@ -118,16 +135,21 @@ final class BuildServerReporterImpl(
       val shouldPublish = oldDocuments.nonEmpty || problems.nonEmpty || shouldReportAllProblems
 
       if (shouldPublish) {
+        // Group diagnostics by document
         val diagsByDocuments = problems
           .flatMap(mapProblemToDiagnostic)
           .groupBy { case (document, _) => document }
           .mapValues(_.map { case (_, diag) => diag })
 
+        //Get a set of these diagnostics to remove duplicates
         val newDocuments = diagsByDocuments.keySet
 
         bspCompileState.hasAnyProblems.updateAndGet(_ + (source -> newDocuments.toVector))
         
-        (newDocuments ++ oldDocuments).foreach { document =>
+        val sourceDocument = TextDocumentIdentifier(sourcePath.toUri)
+        val allDocuments = (newDocuments ++ oldDocuments + sourceDocument) 
+        // Iterate through both new and old documents, sending diagnostics for each
+        allDocuments.foreach { document =>
           val diags: Vector[Diagnostic] = diagsByDocuments
             .getOrElse(document, Vector.empty)
           val params = PublishDiagnosticsParams(
@@ -137,15 +159,21 @@ final class BuildServerReporterImpl(
             diags,
             reset = true
           )
+          // Notify the client with the diagnostics
           exchange.notifyEvent("build/publishDiagnostics", params)
         }
       }
     }
   }
-  
+  /**
+  *This method sends a failure report to the client when the compilation fails. It takes an array of virtual files
+  *as the input parameter and processes the reported problems for each source.
+  @param sources an array of virtual files representing the source files
+*/
   
   override def sendFailureReport(sources: Array[VirtualFile]): Unit = {
     val shouldReportAllProblems = !bspCompileState.compiledAtLeastOnce.get
+    // Iterate through all source files 
     for {
       source <- sources // scala
       //id <- sourcePositionMapper(problem.position).sourcePath.toOption
@@ -155,12 +183,19 @@ final class BuildServerReporterImpl(
       // twirl => twirl (scala)
       // 1. filePath: twirl
       // 2. problemByFiles: scala => twirl
+
+      // Get the problems associated with the current source file
       val problems = problemsByFile.getOrElse(source, Vector.empty)
 
       val oldDocuments = bspCompileState.hasAnyProblems.getAndUpdate(_ - source).getOrElse(source, Seq.empty)
+      // Determine if diagnostics should be published
+      // 1. The file had problems previously - we might want to update them with new ones
+      // 2. The file has fresh problems - we might want to update old ones
+      // 3. The build project is compiled for the first time - shouldReportAllProblems is set
       val shouldPublish = oldDocuments.nonEmpty || problems.nonEmpty || shouldReportAllProblems
 
       if (shouldPublish) {
+          // Group diagnostics by document
         val diagsByDocuments = problems
           .flatMap(mapProblemToDiagnostic)
           .groupBy { case (document, _) => document }
@@ -170,6 +205,7 @@ final class BuildServerReporterImpl(
 
         bspCompileState.hasAnyProblems.updateAndGet(_ + (source -> newDocuments.toVector))
         
+        // Iterate through both new and old documents, sending diagnostics for each
         (newDocuments ++ oldDocuments).foreach { document =>
           val diags: Vector[Diagnostic] = diagsByDocuments
             .getOrElse(document, Vector.empty)
@@ -205,13 +241,23 @@ final class BuildServerReporterImpl(
     }
 
   }
+  
+/**
+
+*This function maps a given problem to a diagnostic with a corresponding text document identifier.
+*It returns an Option of a tuple containing the TextDocumentIdentifier and the Diagnostic.
+ @param problem the problem to be converted into a diagnostic
+ @return an Option containing a tuple with the TextDocumentIdentifier and the Diagnostic, or None if the mapping cannot be performed
+*/
 
   def mapProblemToDiagnostic(problem: Problem): Option[(TextDocumentIdentifier, Diagnostic)] = {
+    // Map the position of the problem  from the generated file to the origin , this way we send the original position of the problem instead of the generated one
     val mappedPosition = sourcePositionMapper(problem.position)
     for {
       id <- mappedPosition.sourcePath.toOption
       path <- toSafePath(VirtualFileRef.of(id))
     } yield {
+      // Create the text document identifier and convert the problem to a diagnostic
         (TextDocumentIdentifier(path.toUri), toDiagnostic(mappedPosition, problem))
     }
   }
