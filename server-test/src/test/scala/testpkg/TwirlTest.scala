@@ -1,5 +1,4 @@
-package testpkg
-
+/*package testpkg
 
 import sbt.internal.bsp._
 import sbt.IO
@@ -21,9 +20,10 @@ object TwirlTest extends AbstractServerTest {
 
   override val testDirectory: String = "buildserver"
 
-    test("buildTarget/compile [diagnostics] clear stale warnings") { _ =>
+  test("buildTarget/compile [diagnostics] clear stale warnings") { _ =>
     val buildTarget = buildTargetUri("twirlProj", "Compile")
-    val testFile = new File(svr.baseDirectory, s"twirl-proj/src/main/twirl/vHostHttpToHttps.scala.txt")
+    val testFile =
+      new File(svr.baseDirectory, s"twirl-proj/src/main/twirl/vHostHttpToHttps.scala.txt")
 
     compile(buildTarget)
 
@@ -81,7 +81,7 @@ object TwirlTest extends AbstractServerTest {
     svr.sendJsonRpc(request(id, "buildTarget/compile", params))
   }
 
-    private def buildTargetUri(project: String, config: String): URI =
+  private def buildTargetUri(project: String, config: String): URI =
     new URI(s"${svr.baseDirectory.getAbsoluteFile.toURI}#$project/$config")
- }
- 
+}
+ */

@@ -16,8 +16,8 @@ ThisBuild / version := {
 }
 ThisBuild / version2_13 := "2.0.0-SNAPSHOT"
 ThisBuild / versionScheme := Some("early-semver")
-// ThisBuild / scalafmtOnCompile := !(Global / insideCI).value
-// ThisBuild / Test / scalafmtOnCompile := !(Global / insideCI).value
+ThisBuild / scalafmtOnCompile := !(Global / insideCI).value
+ThisBuild / Test / scalafmtOnCompile := !(Global / insideCI).value
 ThisBuild / turbo := true
 ThisBuild / usePipelining := false // !(Global / insideCI).value
 ThisBuild / organization := "org.scala-sbt"
