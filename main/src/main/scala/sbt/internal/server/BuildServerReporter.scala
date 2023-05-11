@@ -79,8 +79,6 @@ An implementation of the BuildServerReporter for communicating with the Build Se
 Sends diagnostic messages to the client, handling success and failure cases.
 @param buildTarget the identifier of the build target
 @param bspCompileState state representing what has already been reported in previous compilation.
-
-
 @param converter a file converter for converting between VirtualFileRef and Path
 @param sourcePositionMapper a function to map an xsbti.Position from the generated file (the Scala file) to the source file of the generator (e.g. Twirl file)
 @param isMetaBuild a flag indicating if this is a meta build
@@ -101,7 +99,7 @@ final class BuildServerReporterImpl(
 
   private lazy val exchange = StandardMain.exchange
   //keeps track of problems in a given file by mapping its VirtualFileRef to a Vector of problems.
-  //N.B : In case of a source generator file (Twirl), the given file is the generated one.
+  //N.B : In case of a source generator file (Twirl), the given file is the generated one (Scala).
   private val problemsByFile = mutable.Map[VirtualFileRef, Vector[Problem]]()
 
   // sometimes the compiler returns a fake position such as <macro>

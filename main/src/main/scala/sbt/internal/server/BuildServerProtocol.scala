@@ -313,14 +313,12 @@ object BuildServerProtocol {
       val underlying = (Keys.compile / compilerReporter).value
       val logger = streams.value.log
       val meta = isMetaBuild.value
-      //Adam
       val spms = sourcePositionMappers.value
       if (bspEnabled.value) {
         new BuildServerReporterImpl(
           targetId,
           bspCompileStateInstance,
           converter,
-          //Adam
           Defaults.foldMappers(spms, reportAbsolutePath.value, fileConverter.value),
           meta,
           logger,
