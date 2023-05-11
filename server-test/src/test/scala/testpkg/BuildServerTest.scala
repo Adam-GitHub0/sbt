@@ -611,7 +611,7 @@ object BuildServerTest extends AbstractServerTest {
   test("buildTarget/compile twirl diagnostics (sourcePositionMapping)") { _ =>
     val buildTarget = buildTargetUri("twirlProj", "Compile")
     val testFile =
-      new File(svr.baseDirectory, s"twirl-proj/src/main/twirl/vHostHttpToHttps.scala.txt")
+      new File(svr.baseDirectory, s"twirlProj/src/main/twirl/vHostHttpToHttps.scala.txt")
 
     compile(buildTarget)
 
@@ -652,7 +652,7 @@ object BuildServerTest extends AbstractServerTest {
         s.contains("build/publishDiagnostics") &&
         s.contains("vHostHttpToHttps.scala.txt") &&
         s.contains(""""diagnostics":[]""") &&
-        s.contains(""""reset":"true"""")
+        s.contains(""""reset":true""")
       },
       "should send publishDiagnostics with empty diagnostics"
     )
